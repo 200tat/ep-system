@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.primeton.viewProvider.mapper.ViewMapper">
+
+
+    <sql id="baseViewSql">
+        viewId, areaId, areaName, parentId, parentName,areaLevel, newPatientCount, newCuredCount, newDeathCount, presentPatientCount,
+        allPatientCount, allCuredCount, allDeathCount, building, isolationLevel, transferCount, stayCount,
+        statisticalDate, transferCountToday
+    </sql>
+
+
+
+    <resultMap id="baseResultMap" type="com.primeton.commom.pojo.View">
+        <id property="viewId" column="viewId"></id>
+        <result property="areaId" column="areaId"></result>
+        <result property="areaName" column="areaName"></result>
+        <result property="parentId" column="parentId"></result>
+        <result property="parentName" column="parentName"></result>
+        <result property="areaLevel" column="areaLevel"></result>
+        <result property="newPatientCount" column="newPatientCount"></result>
+        <result property="newCuredCount" column="newCuredCount"></result>
+        <result property="newDeathCount" column="newDeathCount"></result>
+        <result property="presentPatientCount" column="presentPatientCount"></result>
+        <result property="allPatientCount" column="allPatientCount"></result>
+        <result property="allCuredCount" column="allCuredCount"></result>
+        <result property="allDeathCount" column="allDeathCount"></result>
+        <result property="building" column="building"></result>
+        <result property="isolationLevel" column="isolationLevel"></result>
+        <result property="transferCount" column="transferCount"></result>
+        <result property="stayCount" column="stayCount"></result>
+        <result property="statisticalDate" column="statisticalDate"></result>
+        <result property="transferCountToday" column="transferCountToday"></result>
+    </resultMap>
+
+
+
+
+    <select id="findByAreaLevel" resultType="com.primeton.commom.pojo.View">
+        SELECT <include refid="baseViewSql"></include>
+        FROM `view`
+        WHERE areaLevel = #{areaLevel}
+        GROUP BY areaName
+    </select>
+
+    <select id="findByDateAreaLevel" resultType="com.primeton.commom.pojo.View">
+        SELECT <include refid="baseViewSql"></include>
+        FROM `view`
+        WHERE areaLevel = #{areaLevel}
+        AND DATEDIFF(CURDATE(),statisticalDate) &lt;= 7
+        ORDER BY ASC
+    </select>
+
+    <select id="getInfoByAreaId" resultType="com.primeton.commom.pojo.View">
+        SELECT <include refid="baseViewSql"></include>
+        FROM `view`
+        WHERE DATEDIFF(CURDATE(),statisticalDate) &lt; #{day}
+        AND areaId = #{areaId}
+        ORDER BY statisticalDate ASC
+    </select>
+
+
+
+    <!--Date date,boolean outstanding,String parentId-->
+    <select id="findAreaByParentId" resultMap="baseResultMap">
+        SELECT <include refid="baseViewSql"></include> FROM view
+        <where>
+            <if test="outstanding">
+                AND isolationLevel = 3
+            </if>
+            <if test="date!=null">
+                AND statisticalDate &gt;= #{date}
+            </if>
+            AND parentId = #{areaId}
+        </where>
+    </select>
+
+    <!--List<View> findAreaEpidemicByAreaId(String areaId, Date date);-->
+    <select id="findAreaEpidemicByAreaId" resultMap="baseResultMap">
+        SELECT <include refid="baseViewSql"></include> FROM view
+        <where>
+            <choose>
+                <when test="areaId == null">
+                    AND parentId = '0'
+                </when>
+                <otherwise>
+                    AND areaId = #{areaId}
+                </otherwise>
+            </choose>
+            <if test="date!=null">
+                AND statisticalDate &gt;= #{date}
+            </if>
+        </where>
+    </select>
+
+    <resultMap id="resultMapLinkChild" type="com.primeton.commom.pojo.View" extends="baseResultMap">
+        <collection property="children" column="areaId" select="getChildrenByParentId"></collection>
+    </resultMap>
+
+
+    <select id="getChildrenId" resultType="String">
+        SELECT areaId
+        FROM `view`
+        WHERE parentId = #{areaId}
+        AND DATEDIFF(CURDATE(),statisticalDate) &lt; 1
+        GROUP BY areaId
+    </select>
+
+</mapper>

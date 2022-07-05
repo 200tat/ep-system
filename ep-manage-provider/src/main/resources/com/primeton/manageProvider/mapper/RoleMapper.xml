@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.primeton.manageProvider.mapper.RoleMapper">
+
+    <sql id="roleBaseSql">
+        ro.roleId, ro.roleName
+    </sql>
+
+    <sql id = "menuBaseSql">
+        me.menuId,menuName,url,parentId,menuType,createTime,icon
+    </sql>
+
+    <resultMap id="baseResultMap" type="com.primeton.commom.pojo.Role">
+        <id column="roleId" property="roleId"></id>
+        <result column="roleName" property="roleName"/>
+    </resultMap>
+
+    <resultMap id="resultMapLinkMenu" type="com.primeton.commom.pojo.Role" extends="baseResultMap">
+        <collection property="menuList" ofType="com.primeton.commom.pojo.Menu">
+            <id column="menuId" property="menuId"></id>
+            <result column="menuName" property="menuName"/>
+            <result column="url" property="url"/>
+            <result column="parentId" property="parentId"/>
+            <result column="menuType" property="menuType"/>
+            <result column="createTime" property="createTime"/>
+            <result column="icon" property="icon"></result>
+        </collection>
+    </resultMap>
+
+
+    <!--Role findRoleWithMenuByRoleId(String roleId);
+        -->
+    <select id="findRoleWithMenuByRoleId" resultMap="resultMapLinkMenu">
+        SELECT <include refid="roleBaseSql"></include>, <include refid="menuBaseSql"></include>
+        FROM `role` ro, menu me, permission per
+        WHERE ro.roleId = per.roleId AND me.menuId = per.menuId
+        AND ro.roleId = #{roleId}
+    </select>
+
+
+
+
+</mapper>

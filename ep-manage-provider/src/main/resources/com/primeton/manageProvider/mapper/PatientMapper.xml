@@ -1,0 +1,303 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.primeton.manageProvider.mapper.PatientMapper">
+
+
+    <sql id="PatientBaseSql">
+        patientId,
+        patientName,
+        patientGender,
+        patientBirthplace,
+        cardId,
+        patientPhone,
+        emergencyContact,
+        infectionDate,
+        route,
+        building,
+        resurrectionDate,
+        patientStatus,
+        recheckStatus,
+        transferDate
+    </sql>
+
+    <sql id="areaLinkSql">
+        ar.areaId,ar.areaName,ar.areaPhone,ar.areaStatus,ar.areaLevel,ar.parentId
+    </sql>
+
+    <sql id="midSql">
+        associationId,resourceType,resourceId,participantType,participantId
+    </sql>
+
+    <resultMap id="resultMapLinkPatient" type="com.primeton.commom.pojo.Patient">
+            <id column="patientId" property="patientId"></id>
+            <result column="patientName" property="patientName"></result>
+            <result column="patientGender" property="patientGender"></result>
+            <result column="patientBirthplace" property="patientBirthplace"></result>
+            <result column="cardId" property="cardId"></result>
+            <result column="patientPhone" property="patientPhone"></result>
+            <result column="emergencyContact" property="emergencyContact"></result>
+            <result column="infectionDate" property="infectionDate"></result>
+            <result column="route" property="route"></result>
+            <result column="building" property="building"></result>
+            <result column="resurrectionDate" property="resurrectionDate"></result>
+            <result column="patientStatus" property="patientStatus"></result>
+            <result column="recheckStatus" property="recheckStatus"></result>
+            <result column="transferDate" property="transferDate"></result>
+    </resultMap>
+
+    <resultMap id="resultMapLinkArea" type="com.primeton.commom.pojo.Patient" extends="resultMapLinkPatient">
+        <association property="area" javaType="com.primeton.commom.pojo.Area" resultMap="com.primeton.manageProvider.mapper.AreaMapper.baseResultMap">
+        </association>
+    </resultMap>
+
+    <!--List<Patient> findPatientInCenter(String sheltersId,String patientName, String cardId, Date beginDate, Date endDate);
+        查询防疫中心的患者-->
+    <select id="findPatientInCenter" resultMap="resultMapLinkPatient">
+        SELECT <include refid="PatientBaseSql"></include>
+        FROM patient pa, patient_area_shelters pas
+        WHERE pa.patientId = pas.participantId AND pas.resourceType = 1
+        AND pa.recheckStatus = 2 AND pa.patientStatus = 1
+        <if test="sheltersId != null">
+            AND pas.resourceId = #{sheltersId}
+        </if>
+        <if test="patientName != null">
+            AND pa.patientName = #{patientName}
+        </if>
+        <if test="cardId != null">
+            AND pa.cardId = #{cardId}
+        </if>
+        <if test="beginDate != null">
+            AND pa.infectionDate &gt;= #{beginDate}
+        </if>
+        <if test="endDate != null">
+            AND pa.infectionDate &lt;= #{endDate}
+        </if>
+        <if test="areaIdList != null">
+            and pa.patientId in
+            (
+            SELECT pa.patientId
+            FROM patient_area_shelters pas, patient pa
+            WHERE pas.participantId = pa.patientId
+            and pas.resourceType = 0
+            and pas.resourceId in
+            <foreach collection="areaIdList" item="areaId" open="(" close=")" separator=",">
+                #{areaId}
+            </foreach>
+            )
+        </if>
+
+    </select>
+
+    <!--    根据关联表中资源Id（区域Id）查询关联表和患者表信息-->
+    <select id="selectPatientByAreaId" resultMap="resultMapLinkArea">
+        SELECT <include refid="midSql"></include>, <include refid="PatientBaseSql"></include>, <include refid="areaLinkSql"></include>
+        FROM patient_area_shelters pas, patient pa, area ar
+        WHERE pas.participantId = pa.patientId
+        AND ar.areaId = pas.resourceId
+        <if test="param2 != null">
+            AND patientName like '%${param2}%'
+        </if>
+        <if test="param3 != null">
+            AND cardId like #{param3}
+        </if>
+        <if test="param4 != null">
+            AND infectionDate &gt;= #{param4}
+        </if>
+        <if test="param5 != null">
+            AND infectionDate &lt;= #{param5}
+        </if>
+
+        <choose>
+            <when test="param6 == 3 and param7 &lt; 0">
+                AND pa.recheckStatus &lt; 0
+            </when>
+            <otherwise>
+                AND pa.recheckStatus = #{param7}
+            </otherwise>
+        </choose>
+             AND pas.resourceId in
+        <foreach collection="param1" item="areaId" open="(" close=")" separator=",">
+            #{areaId}
+        </foreach>
+    </select>
+
+    <!--根据方舱id获取病人信息-->
+    <select id="findPatientsByResourceId" resultType="com.primeton.commom.pojo.Patient">
+        SELECT <include refid="PatientBaseSql"></include>
+        FROM patient pa,patient_area_shelters pas
+        WHERE pa.patientId = pas.participantId
+        AND pas.resourceId = #{sheltersId}
+    </select>
+
+
+    <!-- 根据 区域ID（小区） 查询 患者ID集合
+         参数：患者状态集合，
+              复核状态，
+              区域ID（小区）
+    -->
+    <select id="selectInfectedPatientByAreaId" resultType="java.lang.String">
+        SELECT pa.patientId FROM patient pa, patient_area_shelters pas, area ar
+        WHERE pa.patientId = pas.participantId AND pas.resourceId = ar.areaId
+        <if test="patientStatusList !=null">
+            AND pa.patientStatus IN
+            <foreach collection="patientStatusList" item="patientStatus" separator="," open="(" close=")">
+              #{patientStatus}
+            </foreach>
+        </if>
+
+        <if test="recheckStatus != null">
+            AND pa.recheckStatus = #{recheckStatus}
+        </if>
+        <if test="areaId!=null">
+            AND ar.areaId = #{areaId}
+        </if>
+    </select>
+
+    <!--查询 患者集合中 未转运至方舱的患者且未转阴 的患者个数-->
+    <!--参数 ： resourceType（Integer）
+               resourceId(String)
+               seven(Boolean)
+               patientIdList(List)
+    -->
+    <select id="selectCountOfPatientInCenter" resultType="java.lang.Integer">
+        SELECT COUNT(patientId) FROM patient pa, patient_area_shelters pas
+        WHERE pa.patientId = pas.participantId
+        <if test="resourceType != null">
+            AND pas.resourceType = #{resourceType}
+        </if>
+        <if test="resourceId != null">
+            AND pas.resourceId = #{resourceId}
+        </if>
+        <if test="seven">
+            AND DATEDIFF(CURDATE(),pa.transferDate) &lt; 7
+        </if>
+
+        <if test="patientIdList !=null">
+            AND pa.patientId IN
+            <foreach collection="patientIdList" item="patientId" separator="," open="(" close=")">
+                #{patientId}
+            </foreach>
+        </if>
+    </select>
+
+    <!--
+        查询7天之内 居家康复或死亡的 患者
+        参数： patientStatusList
+              recheckStatus
+              areaId
+    -->
+    <select id="selectCountOfPatientCured" resultType="java.lang.Integer">
+        SELECT count(pa.patientId)
+        FROM patient pa,patient_area_shelters pas,area ar
+        WHERE pa.patientId = pas.participantId AND ar.areaId = pas.resourceId AND pas.resourceType = 0
+        <if test="patientStatusList !=null">
+            AND pa.patientStatus IN
+            <foreach collection="patientStatusList" item="patientStatus" separator="," open="(" close=")">
+                #{patientStatus}
+            </foreach>
+        </if>
+        <if test="recheckStatus != null">
+            AND pa.recheckStatus = #{recheckStatus}
+        </if>
+            AND DATEDIFF(CURDATE(),pa.resurrectionDate) &lt; 7
+        <if test="areaId!=null">
+            AND ar.areaId = #{areaId}
+        </if>
+    </select>
+
+
+
+    <!--Long getNewPatientCount(String areaId);-->
+    <!--
+        获取当日新增患者人数 提供 isNew(boolean)
+        获取还未转阴的患者人数 提供 patientStatus(Integer) 输入1
+        获取累计患者人数，全部输入null
+        获取累计治愈患者人数， 提供 patientStatus(Integer) 输入0
+        获取累计死亡患者人数， 提供 patientStatus(Integer) 输入-1
+    -->
+    <select id="getPatientCount" resultType="java.lang.Integer">
+        SELECT count(pa.patientId)
+        FROM patient pa,patient_area_shelters pas,area ar
+        WHERE pa.patientId = pas.participantId AND ar.areaId = pas.resourceId AND pas.resourceType = 0
+        <if test="isNew">
+            AND DATEDIFF(CURDATE(),pa.infectionDate) &lt;= 1
+        </if>
+        <if test="patientStatus != null">
+            AND pa.patientStatus = #{patientStatus}
+        </if>
+        AND ar.areaId = #{areaId}
+    </select>
+    
+    <select id="getNewCuredDeathCount" resultType="java.lang.Integer">
+        SELECT count(pa.patientId)
+        FROM patient pa,patient_area_shelters pas,area ar
+        WHERE pa.patientId = pas.participantId AND ar.areaId = pas.resourceId AND pas.resourceType = 0
+        AND DATEDIFF(CURDATE(),pa.resurrectionDate) &lt;= 1
+        AND pa.patientStatus = #{patientStatus}
+        AND ar.areaId = #{areaId}
+    </select>
+
+
+    <!--Long getPatientToSheltersCount(String areaId, Boolean stayHome);-->
+    <select id="getPatientIdWithArea" resultType="java.lang.String">
+        SELECT pa.patientId
+        FROM patient pa,patient_area_shelters pas,area ar
+        WHERE pa.patientId = pas.participantId AND ar.areaId = pas.resourceId AND pas.resourceType = 0
+        AND ar.areaId = #{areaId}
+    </select>
+
+    <!--Long selectCountPatientBySheltersId(List<String> patientIdList, Boolean stayHome);-->
+    <select id="selectCountPatientBySheltersId" resultType="java.lang.Integer">
+        SELECT COUNT(pa.patientId)
+        FROM patient pa,patient_area_shelters pas,shelters sh
+        WHERE pa.patientId = pas.participantId AND sh.sheltersId = pas.resourceId AND pas.resourceType = 1
+        <choose>
+            <when test="stayHome">
+                AND sh.sheltersId = '0'
+            </when>
+            <otherwise>
+                AND sh.sheltersId &lt;&gt; 0
+            </otherwise>
+        </choose>
+        <if test="todayBool">
+            AND DATEDIFF(CURDATE(),pa.transferDate) &lt;= 1
+        </if>
+        AND pa.patientId IN
+        <foreach collection="patientIdList" item="patientId" separator="," open="(" close=")">
+            #{patientId}
+        </foreach>
+    </select>
+    
+    
+    <!--Patient findPatientById(String patientId);-->
+    <select id="findPatientById" resultMap="resultMapLinkArea">
+        SELECT <include refid="PatientBaseSql"></include>, <include refid="areaLinkSql"></include> FROM patient pa,patient_area_shelters pas,area ar
+        WHERE pa.patientId = pas.participantId AND pas.resourceId = ar.areaId
+        AND pas.resourceType = 0 AND pas.participantType = 0
+        AND pa.patientId = #{patientId}
+    </select>
+
+
+
+
+    <select id="selectPatientBySheltersId" resultType="com.primeton.commom.pojo.Patient">
+        SELECT <include refid="PatientBaseSql"></include>
+        FROM patient pa, patient_area_shelters pas
+        WHERE pa.patientId = pas.participantId
+        AND pas.resourceId = #{sheltersId}
+        <if test="patientName != null and patientName != ''">
+            AND patientName like '%${patientName}%'
+        </if>
+        <if test="cardId != null and cardId != ''">
+            AND cardId like '%${cardId}%'
+        </if>
+        <if test="beginInfectionDate != null">
+            AND infectionDate >= #{beginInfectionDate}
+        </if>
+        <if test="endInfectionDate != null">
+            AND infectionDate &lt;= #{endInfectionDate}
+        </if>
+    </select>
+
+
+</mapper>

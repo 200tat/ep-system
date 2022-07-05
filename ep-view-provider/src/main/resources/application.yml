@@ -1,0 +1,43 @@
+server:
+  port: 8011
+
+spring:
+  application:
+    name: ep-view-provider
+
+  cloud:
+    nacos:
+      discovery:
+        server-addr:  172.30.251.95:8848
+  jackson:
+    time-zone: GMT+8
+  redis:
+    host: 127.0.0.1
+    password: newb
+    jedis:
+      pool:
+        max-active: 8
+        max-wait: -1
+        max-idle: 500
+        min-idle: 0
+    lettuce:
+      shutdown-timeout: 0
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://rm-bp18yqkr4h90to526uo.mysql.rds.aliyuncs.com:3306/test_02?&serverTimezone=GMT%2B8&useUnicode=true&characterEncoding=UTF-8
+    username: root
+    password: Root123456
+
+
+
+
+
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: false #此配置是取消mybatis-plus的自动转驼峰配置
+
+
+logging:
+  level:
+    com.primeton.mapper: debug

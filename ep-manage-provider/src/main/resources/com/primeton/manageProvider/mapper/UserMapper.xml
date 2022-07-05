@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.primeton.manageProvider.mapper.UserMapper">
+
+
+    <!--此sql语句段用来取代*号-->
+    <sql id="userBaseSql">
+        userId,userName,account,userPassword,userPhone,registerDate,roleId,isDelete
+    </sql>
+    <sql id="userLinkSql">
+        userId,userName,account,userPassword,userPhone,registerDate,us.roleId
+    </sql>
+    <sql id="areaBaseSql">
+        areaId,areaName,areaPhone,areaStatus,parentId,areaLevel
+    </sql>
+    <sql id="sheltersBaseSql">
+        sheltersId,sheltersName,sheltersPhone,sheltersAddress,sheltersStatus
+    </sql>
+    <sql id="baseRoleSql">
+        ro.roleId,ro.roleName
+    </sql>
+    <sql id="menuLinkSql">
+        me.menuId,me.menuName,me.url,me.parentId,me.menuType,me.createTime,me.icon
+    </sql>
+
+    <resultMap id="baseResultMap" type="com.primeton.commom.pojo.User">
+        <id column="userId" property="userId"></id>
+        <result column="userName" property="userName"></result>
+        <result column="account" property="account"></result>
+        <result column="userPassword" property="userPassword"></result>
+        <result column="userPhone" property="userPhone"></result>
+        <result column="registerDate" property="registerDate"></result>
+        <result column="roleId" property="roleId"></result>
+        <result column="isDelete" property="isDelete"></result>
+    </resultMap>
+
+    <!--用户 和 区域 的联合resultMap -->
+    <resultMap id="resultMapLinkArea" type="com.primeton.commom.pojo.User" extends="baseResultMap">
+        <collection property="areaList" ofType="com.primeton.commom.pojo.Area">
+            <id column="areaId" property="areaId"></id>
+            <result column="areaName" property="areaName"></result>
+            <result column="areaPhone" property="areaPhone"></result>
+            <result column="areaStatus" property="areaStatus"></result>
+            <result column="parentId" property="parentId"></result>
+            <result column="areaType" property="areaType"></result>
+        </collection>
+    </resultMap>
+
+    <!--用户 和 角色 的联合resultMap -->
+    <resultMap id="resultMapLinkRole" type="com.primeton.commom.pojo.User" extends="baseResultMap">
+        <association property="role" javaType="com.primeton.commom.pojo.Role" select="selectRoleById" column="roleId">
+        </association>
+    </resultMap>
+    <!--角色和菜单的resultMap-->
+    <resultMap id="roleResultMapLinkMenu" type="com.primeton.commom.pojo.Role">
+        <id column="roleId" property="roleId"/>
+        <result column="roleName" property="roleName"/>
+        <collection property="menuList" ofType="com.primeton.commom.pojo.Menu" resultMap="com.primeton.manageProvider.mapper.MenuMapper.baseResultMap">
+        </collection>
+    </resultMap>
+
+    <resultMap id="resultMapLinkShelters" type="com.primeton.commom.pojo.User" extends="baseResultMap">
+        <association property="shelters" javaType="com.primeton.commom.pojo.Shelters">
+            <id column="sheltersId" property="sheltersId"></id>
+            <result column="sheltersName" property="sheltersName"></result>
+            <result column="sheltersPhone" property="sheltersPhone"></result>
+            <result column="sheltersAddress" property="sheltersAddress"></result>
+            <result column="sheltersStatus" property="sheltersStatus"></result>
+        </association>
+    </resultMap>
+
+
+    <!--查询Role及对应Menu-->
+    <select id="selectRoleById" resultMap="roleResultMapLinkMenu">
+        SELECT <include refid="baseRoleSql"></include>,<include refid="menuLinkSql"></include>
+        FROM `role` ro,`menu` me,`permission` per
+        WHERE ro.roleId = per.roleId AND me.menuId = per.menuId
+        AND ro.roleId = #{roleId}
+    </select>
+
+
+
+
+
+    <!--User findUserRoleById(String userId);
+        查询用户 以及对应的角色信息
+    -->
+    <select id="findUserRoleById" resultMap="resultMapLinkRole">
+        SELECT <include refid="userBaseSql"/>
+        FROM `user` us
+        WHERE  us.isDelete = 0 AND us.userId = #{userId}
+    </select>
+
+
+    <!--findUsersInArea 查询 管理者以及其对应的区域信息
+     * @param areaLevel 判断查询的是哪一行政规划的管理者，比如是街道管理者还是行政区管理者
+     * @param userName 管理者姓名
+     * @param account 管理者账户
+     * @param areaId 所属的区域的ID
+     * @param beginDate 注册时间大于此时间
+     * @param endDate 注册时间小于此时间
+     -->
+    <select id="findUsersInArea" resultMap="baseResultMap">
+        SELECT <include refid="userLinkSql"></include>,<include refid="areaBaseSql"></include>
+        FROM `user` us, user_role_area_shelters uras, area ar
+        WHERE us.userId = uras.participantId AND uras.resourceId = ar.areaId AND uras.resourceType = 0
+        AND us.isDelete = 0
+        AND ar.areaLevel = #{areaLevel}
+        <if test="userName!=null">
+            AND us.userName like CONCAT('%',CONCAT(#{userName},'%'))
+        </if>
+        <if test="account!=null">
+            AND us.account = #{account}
+        </if>
+        <if test="areaId!=null">
+            AND ar.areaId = #{areaId}
+        </if>
+        <if test="beginDate!=null">
+            AND us.registerDate &gt;= #{beginDate}
+        </if>
+        <if test="endDate!=null">
+            AND us.registerDate &lt;= #{endDate}
+        </if>
+        GROUP BY us.userId
+    </select>
+
+    <!--findUserById
+    * @param userId 用户主键
+    -->
+    <select id="findAreaUserById" resultMap="resultMapLinkArea">
+        SELECT <include refid="userLinkSql"></include>,<include refid="areaBaseSql"></include>
+        FROM user us, user_role_area_shelters uras, area ar
+        WHERE us.userId = uras.participantId AND uras.resourceId = ar.areaId AND uras.resourceType = 0
+        AND us.isDelete = 0
+        AND us.userId = #{userId}
+    </select>
+
+    <!--    通过用户id查询方舱管理员-->
+    <select id="findSheltersUserById" resultMap="resultMapLinkShelters">
+        SELECT <include refid="userLinkSql"></include>,<include refid="sheltersBaseSql"></include>
+        FROM `user` us, user_role_area_shelters uras, shelters sh
+        WHERE us.userId = uras.participantId AND sh.sheltersId = uras.resourceId AND uras.resourceType = 1
+        AND us.isDelete = 0
+        AND us.userId = #{userId}
+    </select>
+
+<!--    通过账号密码查询用户-->
+    <select id="findByAccount" resultType="com.primeton.commom.pojo.User">
+        SELECT <include refid="userBaseSql"></include>
+        FROM user
+        WHERE isDelete = 0 AND account=#{account}
+    </select>
+
+
+
+
+
+
+    <!--List<User> findSheltersUser(String userName, String account, String sheltersId, Date beginDate, Date endDate);-->
+    <select id="findSheltersUser" resultMap="resultMapLinkShelters">
+        SELECT <include refid="userLinkSql"></include>,<include refid="sheltersBaseSql"></include>
+        FROM `user` us, user_role_area_shelters uras, shelters sh
+        WHERE us.userId = uras.participantId AND sh.sheltersId = uras.resourceId AND uras.resourceType = 1
+        AND  us.isDelete = 0
+        <if test="userName!=null">
+            AND us.userName like CONCAT('%',CONCAT(#{userName},'%'))
+        </if>
+        <if test="account!=null">
+            AND us.account = #{account}
+        </if>
+        <if test="sheltersId!=null">
+            AND sh.sheltersId = #{sheltersId}
+        </if>
+        <if test="beginDate!=null">
+            AND us.registerDate &gt; #{beginDate}
+        </if>
+        <if test="endDate!=null">
+            AND us.registerDate &lt; #{endDate}
+        </if>
+    </select>
+
+    <!--根据userId得到管辖的资源list-->
+    <select id="findUserResource" resultType="String">
+        SELECT uras.resourceId
+        FROM user us,user_role_area_shelters uras
+        WHERE us.userId = uras.participantId
+        AND  us.isDelete = 0
+        AND us.userId = #{userId}
+    </select>
+
+
+
+</mapper>

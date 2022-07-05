@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.primeton.manageProvider.mapper.AreaMapper">
+
+
+    <sql id="areaBaseSql">
+        areaId,areaName,areaPhone,areaStatus,areaLevel,parentId
+    </sql>
+
+    <sql id="areaLinkSql">
+        a1.areaId,a1.areaName,a1.areaPhone,a1.areaStatus,a1.areaLevel,a1.parentId
+    </sql>
+
+    <!--  区域基本信息  -->
+    <resultMap id="baseResultMap" type="com.primeton.commom.pojo.Area">
+        <id column="areaId" property="areaId"></id>
+        <result column="areaName" property="areaName"></result>
+        <result column="areaPhone" property="areaPhone"></result>
+        <result column="areaStatus" property="areaStatus"></result>
+        <result column="areaLevel" property="areaLevel"></result>
+        <result column="parentId" property="parentId"></result>
+        <result column="createTime" property="createTime"/>
+    </resultMap>
+
+    <!--通过该区域信息查询父区域信息-->
+    <resultMap id="resultMapLinkParent" type="com.primeton.commom.pojo.Area" extends="baseResultMap">
+        <association property="parentArea" column="parentId" select="findByAreaId">
+        </association>
+    </resultMap>
+
+    <!--  查询该区域下的患者信息  -->
+    <resultMap id="resultMapLinkMid" type="com.primeton.commom.pojo.Area" extends="baseResultMap">
+        <collection property="pasList" column="areaId" ofType="com.primeton.commom.pojo.PatientAreaShelters"
+                    select="com.primeton.manageProvider.mapper.PatientAreaSheltersMapper.selectPatientByAreaId">
+        </collection>
+    </resultMap>
+
+
+    <!--    通过父区域Id查询子区域的信息-->
+    <resultMap id="resultMapLinkChild" type="com.primeton.commom.pojo.Area" extends="baseResultMap">
+        <collection property="children" column="areaId"
+                    select="findChildArea">
+        </collection>
+    </resultMap>
+
+
+    <!--List<Area> getAreaByUserId(String userId);-->
+    <select id="getAreaByUserId" resultMap="baseResultMap">
+        SELECT <include refid="areaBaseSql"></include> FROM area ar, user_role_area_shelters uras
+        WHERE ar.areaId  = uras.resourceId AND resourceType = 0
+        AND uras.participantId = #{userId}
+    </select>
+
+
+    <!--根据areaId查询该区域信息-->
+     <select id="findByAreaId" resultMap="baseResultMap">
+         SELECT <include refid="areaBaseSql"></include> FROM area
+         WHERE areaId = #{arg0}
+     </select>
+
+    <!--查询所有区域信息-->
+    <select id="findAllArea" resultMap="resultMapLinkParent">
+        SELECT <include refid="areaBaseSql"></include>  FROM area
+    </select>
+
+    <!--查询该区域信息以及其父区域信息-->
+    <select id="findParent" resultMap="resultMapLinkParent">
+        SELECT <include refid="areaBaseSql"></include> FROM area
+        WHERE areaId = #{param1}
+    </select>
+
+
+
+    <!--查询 父区域的信息 之后查询子区域信息   -->
+    <select id="findPatientWithAreaId" resultMap="resultMapLinkChild">
+        SELECT <include refid="areaBaseSql"></include> FROM area
+        <if test="areaId != null and areaId != ''">
+            WHERE areaId = #{areaId}
+        </if>
+    </select>
+
+    <!--查询区域集合下的所有子区域信息-->
+    <select id="findChildAreaListByIdList" resultMap="resultMapLinkChild">
+        SELECT <include refid="areaBaseSql"></include> FROM area
+        WHERE areaId IN
+        <foreach collection="list" item="areaId" separator="," open="(" close=")">
+            #{areaId}
+        </foreach>
+    </select>
+
+
+    <!--通过 父id集合 查询子区域 不含父区域的信息-->
+    <select id="findChildArea" parameterType="List" resultMap="resultMapLinkChild">
+        SELECT <include refid="areaBaseSql"></include> FROM area
+        WHERE parentId = #{areaId}
+    </select>
+
+    <!--  查询不同等级区域  -->
+    <select id="getLevelArea" resultMap="resultMapLinkChild">
+        SELECT <include refid="areaBaseSql"></include>
+        FROM area
+        WHERE areaLevel = #{areaLevel}
+    </select>
+
+    <!--查询 区域的信息 之后查询子区域信息   -->
+    <select id="findPatientWithId" resultMap="resultMapLinkChild">
+        SELECT <include refid="areaBaseSql"></include> FROM area
+        WHERE areaId = #{areaId}
+    </select>
+
+
+    <!--getBuildingByAreaId(String areaId)-->
+    <select id="getBuildingByAreaId" resultType="java.lang.String">
+        SELECT pa.building FROM patient pa, patient_area_shelters pas
+        WHERE pa.patientId = pas.participantId
+        AND  pas.participantType = 0 AND pas.resourceType = 0
+        AND pas.resourceId = #{areaId}
+    </select>
+
+</mapper>

@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.primeton.manageProvider.mapper.PatientAreaSheltersMapper">
+
+
+    <sql id="PatientBaseSql">
+        patientId,
+        patientName,
+        patientGender,
+        patientBirthplace,
+        cardId,
+        patientPhone,
+        emergencyContact,
+        infectionDate,
+        route,
+        building,
+        resurrectionDate,
+        patientStatus,
+        recheckStatus,
+        transferDate
+    </sql>
+
+    <sql id="midSql">
+        associationId,resourceType,resourceId,participantType,participantId
+    </sql>
+
+
+
+    <resultMap id="resultMapLinkPatient" type="com.primeton.commom.pojo.PatientAreaShelters">
+        <id column="associationId" property="associationId"></id>
+        <result column="resourceType" property="resourceType"></result>
+        <result column="resourceId" property="resourceId"></result>
+        <result column="participantType" property="participantType"></result>
+        <result column="participantId" property="participantId"></result>
+        <association property="patient" column="resourceId" javaType="com.primeton.commom.pojo.Patient">
+            <id column="patientId" property="patientId"></id>
+            <result column="patientName" property="patientName"></result>
+            <result column="patientGender" property="patientGender"></result>
+            <result column="patientBirthplace" property="patientBirthplace"></result>
+            <result column="cardId" property="cardId"></result>
+            <result column="patientPhone" property="patientPhone"></result>
+            <result column="emergencyContact" property="emergencyContact"></result>
+            <result column="infectionDate" property="infectionDate"></result>
+            <result column="route" property="route"></result>
+            <result column="building" property="building"></result>
+            <result column="resurrectionDate" property="resurrectionDate"></result>
+            <result column="patientStatus" property="patientStatus"></result>
+            <result column="recheckStatus" property="recheckStatus"></result>
+            <result column="transferDate"  property="transferDate"></result>
+        </association>
+<!--        <collection property="patientList" column="participantId" ofType="com.primeton.pojo.Patient">-->
+<!--            <id column="patientId" property="patientId"></id>-->
+<!--            <result column="patientName" property="patientName"></result>-->
+<!--            <result column="patientGender" property="patientGender"></result>-->
+<!--            <result column="patientBirthplace" property="patientBirthplace"></result>-->
+<!--            <result column="cardId" property="cardId"></result>-->
+<!--            <result column="patientPhone" property="patientPhone"></result>-->
+<!--            <result column="emergencyContact" property="emergencyContact"></result>-->
+<!--            <result column="infectionDate" property="infectionDate"></result>-->
+<!--            <result column="route" property="route"></result>-->
+<!--            <result column="building" property="building"></result>-->
+<!--            <result column="resurrectionDate" property="resurrectionDate"></result>-->
+<!--            <result column="patientStatus" property="patientStatus"></result>-->
+<!--            <result column="recheckStatus" property="recheckStatus"></result>-->
+<!--        </collection>-->
+    </resultMap>
+
+<!--    根据关联表中资源Id（区域Id）查询关联表和患者表信息-->
+    <select id="selectPatientByAreaId" resultMap="resultMapLinkPatient">
+        SELECT <include refid="midSql"></include>, <include refid="PatientBaseSql"></include>
+        FROM patient_area_shelters pas, patient pa
+        WHERE pas.participantId = pa.patientId
+        AND pas.resourceId = #{param1}
+        <if test="param2 != null">
+            AND patientName like '%${param2}%'
+        </if>
+        <if test="param3 != null">
+            AND cardId like #{param3}
+        </if>
+        <if test="param4 != null">
+            AND infectionDate &gt; #{param4}
+        </if>
+        <if test="param5 != null">
+            AND infectionDate &lt; #{param5}
+        </if>
+    </select>
+
+
+
+</mapper>

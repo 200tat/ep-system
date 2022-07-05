@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.primeton.manageProvider.mapper.MenuMapper">
+
+    <sql id = "menuBaseSql">
+        menuId,menuName,url,parentId,menuType,createTime,icon
+    </sql>
+
+    <sql id="midSql">
+        me.menuId,me.menuName,me.url,me.parentId,me.menuType,me.createTime,me.icon
+    </sql>
+
+<!--    查询菜单基本信息-->
+    <resultMap id="baseResultMap" type="com.primeton.commom.pojo.Menu">
+        <id column="menuId" property="menuId"></id>
+        <result column="menuName" property="menuName"/>
+        <result column="url" property="url"/>
+        <result column="parentId" property="parentId"/>
+        <result column="menuType" property="menuType"/>
+        <result column="createTime" property="createTime"/>
+        <result column="icon" property="icon"></result>
+    </resultMap>
+
+
+
+    <!--查询该菜单Id下的子菜单-->
+    <resultMap id="resultMapLinkChild" type="com.primeton.commom.pojo.Menu" extends="baseResultMap">
+        <collection property="children" column="menuId"
+                    select="findChildByParentId"/>
+    </resultMap>
+    <!--Menu findMenu(String menuId);-->
+    <select id="findMenu" resultMap="resultMapLinkChild">
+        SELECT <include refid="menuBaseSql"></include>
+        FROM menu
+        WHERE menuId = #{menuId}
+    </select>
+
+    <!--条件查询，根据菜单名查询菜单基本信息和子菜单基本信息-->
+    <select id="getMenu" resultMap="resultMapLinkChild">
+        SELECT <include refid="menuBaseSql"></include>
+        FROM menu
+        <if test="menuName != null and menuName != ''">
+            WHERE menuName like '%${menuName}%'
+        </if>
+    </select>
+
+    <!--使用父id查询所有子菜单  -->
+    <select id="findChildByParentId" resultMap="resultMapLinkChild">
+        SELECT <include refid="menuBaseSql"></include>
+        FROM menu
+        WHERE parentId = #{parentId}
+    </select>
+
+    <!--查询不同等级菜单  -->
+    <select id="getLevelMenu" resultMap="resultMapLinkChild">
+        SELECT <include refid="menuBaseSql"></include>
+        FROM menu
+        WHERE menuType = #{menuType}
+    </select>
+
+    <!--查询不同角色所管理的菜单  -->
+    <select id="getRoleMenu" resultMap="resultMapLinkChild">
+        SELECT me.menuId,me.menuName,me.url,me.parentId,me.menuType
+        FROM menu me, permission per
+        WHERE me.menuId = per.menuId ANd me.menuType = 1
+        AND per.roleId = #{roleId}
+    </select>
+
+    <!--根据父菜单ID查询角色对应的子菜单 -->
+    <select id="getChildMenuByRoleAndParent" resultMap="resultMapLinkChild">
+        SELECT <include refid="midSql"></include>
+        FROM menu me, permission per
+        WHERE me.menuId = per.menuId AND me.parentId = #{parentId}
+        AND per.roleId = #{roleId}
+    </select>
+</mapper>

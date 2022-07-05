@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.primeton.manageProvider.mapper.ShelterMapper">
+
+    <sql id="sheltersBase">
+        sheltersId,sheltersName,sheltersPhone,sheltersAddress,sheltersStatus
+    </sql>
+
+    <select id="getShelters" resultType="com.primeton.commom.pojo.Shelters">
+        select <include refid="sheltersBase"></include>
+        from shelters
+        <if test="param1 != null">
+            where sheltersName like '%${param1}%'
+        </if>
+    </select>
+
+</mapper>
